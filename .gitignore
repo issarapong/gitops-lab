@@ -1,0 +1,38 @@
+# Kubernetes
+.kube/
+kubeconfig*
+*.kubeconfig
+
+# Secrets
+secrets/
+*.secret
+*.key
+*.pem
+
+# Temporary files
+*.tmp
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+target/
+
+# Node modules
+node_modules/
+package-lock.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/

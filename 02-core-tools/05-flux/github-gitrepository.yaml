@@ -1,0 +1,57 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: gitops-lab
+  namespace: flux-system
+spec:
+  interval: 30s
+  ref:
+    branch: main
+  url: https://github.com/issarapong/gitops-lab
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: sample-app-dev
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: "./01-foundation/03-gitops-intro/clusters/dev/sample-app"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: gitops-lab
+  targetNamespace: dev
+  validation: client
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: sample-app-staging
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: "./01-foundation/03-gitops-intro/clusters/staging/sample-app"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: gitops-lab
+  targetNamespace: staging
+  validation: client
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: sample-app-production
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./01-foundation/03-gitops-intro/clusters/prod/sample-app"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: gitops-lab
+  targetNamespace: production
+  validation: client
+  # Production deployments require manual approval
+  suspend: true

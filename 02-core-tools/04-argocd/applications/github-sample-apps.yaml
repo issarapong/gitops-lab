@@ -1,0 +1,72 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sample-app-dev
+  namespace: argocd
+  labels:
+    environment: dev
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/issarapong/gitops-lab
+    targetRevision: development
+    path: 01-foundation/03-gitops-intro/clusters/dev/sample-app
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+  revisionHistoryLimit: 10
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sample-app-staging
+  namespace: argocd
+  labels:
+    environment: staging
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/issarapong/gitops-lab
+    targetRevision: staging
+    path: 01-foundation/03-gitops-intro/clusters/staging/sample-app
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+  revisionHistoryLimit: 10
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sample-app-production
+  namespace: argocd
+  labels:
+    environment: production
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/issarapong/gitops-lab
+    targetRevision: production
+    path: 01-foundation/03-gitops-intro/clusters/prod/sample-app
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: production
+  syncPolicy:
+    # Production requires manual sync for safety
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+  revisionHistoryLimit: 10

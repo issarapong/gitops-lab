@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: staging
+namePrefix: staging-
+
+resources:
+- ../../base
+
+commonLabels:
+  environment: staging
+
+replicas:
+- name: sample-app
+  count: 2
+
+patches:
+- target:
+    kind: Deployment
+    name: sample-app
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/env/0/value
+      value: "staging"
+
+images:
+- name: nginx
+  newTag: "1.21-alpine"

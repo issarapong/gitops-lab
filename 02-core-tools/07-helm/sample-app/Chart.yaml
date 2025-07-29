@@ -1,0 +1,275 @@
+# Part 7: Helm Charts
+
+Helm is the package manager for Kubernetes. It helps you manage Kubernetes applications through Helm Charts, which are collections of files that describe a related set of Kubernetes resources.
+
+## What is Helm?
+
+Helm provides:
+
+- **Package Management**: Install, upgrade, and manage applications
+- **Templating**: Use Go templates for dynamic configurations
+- **Release Management**: Track deployment history and rollbacks
+- **Dependency Management**: Manage chart dependencies
+- **Repository System**: Share and discover charts
+
+## Helm Architecture
+
+```text
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   Helm CLI  │───▶│  Kubernetes │───▶│    Pods     │
+│             │    │   Cluster   │    │  Services   │
+│  (Client)   │    │             │    │   etc.      │
+└─────────────┘    └─────────────┘    └─────────────┘
+       │
+       ▼
+┌─────────────┐
+│  Chart Repo │
+│             │
+│  (Storage)  │
+└─────────────┘
+```
+
+## Prerequisites
+
+- Lima VM with k3s running
+- kubectl configured
+
+## Installation
+
+### Step 1: Install Helm
+
+```bash
+# Shell into Lima VM
+limactl shell gitops
+
+# Install Helm
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+# Verify installation
+helm version
+```
+
+### Step 2: Add Chart Repositories
+
+```bash
+# Add popular repositories
+helm repo add stable https://charts.helm.sh/stable
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+
+# Update repositories
+helm repo update
+
+# List repositories
+helm repo list
+
+# Search for charts
+helm search repo nginx
+helm search repo postgresql
+```
+
+## Creating Your First Helm Chart
+
+### Step 1: Create Chart Structure
+
+```bash
+# Create a new chart
+helm create sample-app
+
+# Examine the structure
+tree sample-app/
+```
+
+This creates:
+
+```text
+sample-app/
+├── Chart.yaml          # Chart metadata
+├── values.yaml         # Default values
+├── charts/            # Dependencies
+├── templates/         # Kubernetes templates
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   ├── ingress.yaml
+│   ├── serviceaccount.yaml
+│   ├── hpa.yaml
+│   ├── NOTES.txt
+│   ├── _helpers.tpl    # Template helpers
+│   └── tests/
+│       └── test-connection.yaml
+└── .helmignore        # Files to ignore
+```
+
+### Step 2: Customize Chart Metadata
+
+```yaml
+# Chart.yaml
+apiVersion: v2
+name: sample-app
+description: A Helm chart for our sample application
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+maintainers:
+- name: GitOps Lab
+  email: admin@gitops-lab.local
+keywords:
+- sample
+- application
+- nginx
+sources:
+- https://github.com/your-org/sample-app
+```
+
+### Step 3: Configure Default Values
+
+```yaml
+# values.yaml
+replicaCount: 3
+
+image:
+  repository: nginx
+  pullPolicy: IfNotPresent
+  tag: "1.21"
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 80
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+  - host: sample-app.local
+    paths:
+    - path: /
+      pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 128Mi
+  requests:
+    cpu: 250m
+    memory: 64Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Application-specific values
+config:
+  environment: production
+  logLevel: info
+  features:
+    caching: true
+    monitoring: true
+```
+
+### Step 4: Update Deployment Template
+
+```yaml
+# templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sample-app.fullname" . }}
+  labels:
+    {{- include "sample-app.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "sample-app.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "sample-app.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.service.targetPort }}
+          protocol: TCP
+        env:
+        - name: ENVIRONMENT
+          value: {{ .Values.config.environment | quote }}
+        - name: LOG_LEVEL
+          value: {{ .Values.config.logLevel | quote }}
+        {{- if .Values.config.features.caching }}
+        - name: CACHING_ENABLED
+          value: "true"
+        {{- end }}
+        {{- if .Values.config.features.monitoring }}
+        - name: MONITORING_ENABLED
+          value: "true"
+        {{- end }}
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+```
+
+Let me create the actual Helm chart files:
+
+<function_calls>
+<invoke name="create_file">
+<parameter name="content">apiVersion: v2
+name: sample-app
+description: A Helm chart for our sample application
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+maintainers:
+- name: GitOps Lab
+  email: admin@gitops-lab.local
+keywords:
+- sample
+- application
+- nginx
+sources:
+- https://github.com/your-org/sample-app
