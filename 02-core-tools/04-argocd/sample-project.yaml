@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: sample-project
+  namespace: argocd
+spec:
+  description: Sample project for GitOps lab
+  
+  # Source repositories
+  sourceRepos:
+  - 'https://github.com/issarapong/gitops-lab'
+  
+  # Destination clusters and namespaces
+  destinations:
+  - namespace: 'dev'
+    server: https://kubernetes.default.svc
+  - namespace: 'staging'
+    server: https://kubernetes.default.svc
+  - namespace: 'production'
+    server: https://kubernetes.default.svc
+  
+  # Cluster resource whitelist
+  clusterResourceWhitelist:
+  - group: ''
+    kind: Namespace
+  
+  # Namespace resource whitelist
+  namespaceResourceWhitelist:
+  - group: 'apps'
+    kind: Deployment
+  - group: ''
+    kind: Service
+  - group: ''
+    kind: ConfigMap
+  - group: ''
+    kind: Secret

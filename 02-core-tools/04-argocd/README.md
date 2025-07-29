@@ -31,26 +31,27 @@ ArgoCD features:
 
 ## Prerequisites
 
-- Lima VM with k3s running (from previous parts)
-- kubectl configured
+- Kubernetes cluster running (Docker Desktop, Minikube, or Kind)
+- kubectl configured and connected to your cluster  
 - Git repository with application manifests
+- ArgoCD installed (check with `kubectl get pods -n argocd`)
 
 ## Installation
 
 ### Step 1: Install ArgoCD
 
 ```bash
-# Shell into Lima VM
-limactl shell gitops
-
 # Create argocd namespace
 kubectl create namespace argocd
 
 # Install ArgoCD
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
-# Wait for ArgoCD to be ready
+# Wait for ArgoCD to be ready (this may take a few minutes)
 kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
+
+# Verify ArgoCD installation
+kubectl get pods -n argocd
 ```
 
 ### Step 2: Access ArgoCD UI
@@ -70,12 +71,16 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 ### Step 3: Install ArgoCD CLI (Optional)
 
 ```bash
-# Download ArgoCD CLI
-curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+# For macOS (using Homebrew)
+brew install argocd
 
-# Make executable and move to PATH
+# For Linux (manual download)
+curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
 chmod +x argocd-linux-amd64
 sudo mv argocd-linux-amd64 /usr/local/bin/argocd
+
+# For Windows (using Chocolatey)
+choco install argocd-cli
 
 # Verify installation
 argocd version --client
@@ -100,12 +105,14 @@ argocd account update-password
 3. Fill in the application details:
    - **Application Name**: sample-app-dev
    - **Project**: default
-   - **Repository URL**: file:///path/to/your/gitops/repo (or GitHub URL)
-   - **Path**: clusters/dev/sample-app
-   - **Destination Server**: https://kubernetes.default.svc
+   - **Repository URL**: `https://github.com/issarapong/gitops-lab`
+   - **Path**: `01-foundation/03-gitops-intro/clusters/dev/sample-app`
+   - **Destination Server**: `https://kubernetes.default.svc`
    - **Namespace**: dev
 
 ### Method 2: Using YAML
+
+**Create file:** `sample-app-dev.yaml`
 
 Create an ArgoCD Application manifest:
 
@@ -118,9 +125,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/your-username/gitops-repo
+    repoURL: https://github.com/issarapong/gitops-lab
     targetRevision: HEAD
-    path: clusters/dev/sample-app
+    path: 01-foundation/03-gitops-intro/clusters/dev/sample-app
   destination:
     server: https://kubernetes.default.svc
     namespace: dev
@@ -132,10 +139,14 @@ spec:
     - CreateNamespace=true
 ```
 
-Apply the application:
+**Apply the application:**
 
 ```bash
+# Create the application manifest
 kubectl apply -f sample-app-dev.yaml
+
+# Verify application creation
+kubectl get applications -n argocd
 ```
 
 ### Method 3: Using ArgoCD CLI
@@ -143,8 +154,8 @@ kubectl apply -f sample-app-dev.yaml
 ```bash
 # Create application with CLI
 argocd app create sample-app-dev \
-  --repo https://github.com/your-username/gitops-repo \
-  --path clusters/dev/sample-app \
+  --repo https://github.com/issarapong/gitops-lab \
+  --path 01-foundation/03-gitops-intro/clusters/dev/sample-app \
   --dest-server https://kubernetes.default.svc \
   --dest-namespace dev \
   --sync-policy automated \
@@ -153,6 +164,8 @@ argocd app create sample-app-dev \
 ```
 
 ## ArgoCD Projects
+
+**Create file:** `sample-project.yaml`
 
 Projects provide logical grouping and access control:
 
@@ -167,7 +180,7 @@ spec:
   
   # Source repositories
   sourceRepos:
-  - 'https://github.com/your-username/gitops-repo'
+  - 'https://github.com/issarapong/gitops-lab'
   
   # Destination clusters and namespaces
   destinations:
@@ -193,6 +206,16 @@ spec:
     kind: ConfigMap
   - group: ''
     kind: Secret
+```
+
+**Apply the project:**
+
+```bash
+# Create the project
+kubectl apply -f sample-project.yaml
+
+# Verify project creation
+kubectl get appprojects -n argocd
 ```
 
 ## Sync Policies
@@ -227,6 +250,8 @@ syncPolicy:
 
 ## Application Sets
 
+**Create file:** `sample-app-applicationset.yaml`
+
 Manage multiple similar applications:
 
 ```yaml
@@ -251,9 +276,9 @@ spec:
     spec:
       project: default
       source:
-        repoURL: https://github.com/your-username/gitops-repo
+        repoURL: https://github.com/issarapong/gitops-lab
         targetRevision: HEAD
-        path: 'clusters/{{env}}/sample-app'
+        path: '01-foundation/03-gitops-intro/clusters/{{env}}/sample-app'
       destination:
         server: https://kubernetes.default.svc
         namespace: '{{namespace}}'
@@ -265,26 +290,44 @@ spec:
         - CreateNamespace=true
 ```
 
+**Apply the ApplicationSet:**
+
+```bash
+# Create the ApplicationSet
+kubectl apply -f sample-app-applicationset.yaml
+
+# Verify ApplicationSet creation
+kubectl get applicationsets -n argocd
+
+# Check generated applications
+kubectl get applications -n argocd
+```
+
 ## Multi-Environment Management
 
 ### Environment-specific Applications
 
+**Action:** Create individual applications for each environment
+
 ```bash
 # Create applications for each environment
 argocd app create sample-app-dev \
-  --repo https://github.com/your-username/gitops-repo \
-  --path clusters/dev/sample-app \
+  --repo https://github.com/issarapong/gitops-lab \
+  --path 01-foundation/03-gitops-intro/clusters/dev/sample-app \
   --dest-namespace dev
 
 argocd app create sample-app-staging \
-  --repo https://github.com/your-username/gitops-repo \
-  --path clusters/staging/sample-app \
+  --repo https://github.com/issarapong/gitops-lab \
+  --path 01-foundation/03-gitops-intro/clusters/staging/sample-app \
   --dest-namespace staging
 
 argocd app create sample-app-prod \
-  --repo https://github.com/your-username/gitops-repo \
-  --path clusters/prod/sample-app \
+  --repo https://github.com/issarapong/gitops-lab \
+  --path 01-foundation/03-gitops-intro/clusters/prod/sample-app \
   --dest-namespace production
+
+# Verify all applications
+argocd app list
 ```
 
 ### Progressive Deployment
@@ -397,8 +440,11 @@ data:
 
 ### Repository Access
 
+**Create file:** `private-repo-secret.yaml`
+
+Use SSH keys for private repositories:
+
 ```yaml
-# Use SSH keys for private repositories
 apiVersion: v1
 kind: Secret
 metadata:
@@ -413,10 +459,21 @@ data:
   sshPrivateKey: <base64-encoded-ssh-private-key>
 ```
 
+**Apply the repository secret:**
+
+```bash
+# Create the secret
+kubectl apply -f private-repo-secret.yaml
+
+# Verify repository connection
+argocd repo list
+```
+
 ### RBAC Configuration
 
+**Create file:** `argocd-rbac-cm.yaml`
+
 ```yaml
-# ArgoCD RBAC policy
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -436,7 +493,22 @@ data:
     g, your-github-org:dev-team, role:developer
 ```
 
+**Apply the RBAC configuration:**
+
+```bash
+# Apply RBAC policy
+kubectl apply -f argocd-rbac-cm.yaml
+
+# Restart ArgoCD server to reload RBAC
+kubectl rollout restart deployment argocd-server -n argocd
+
+# Verify RBAC policy
+argocd account list
+```
+
 ## App of Apps Pattern
+
+**Create file:** `app-of-apps.yaml`
 
 Manage multiple applications with a single "app of apps":
 
@@ -449,9 +521,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/your-username/gitops-repo
+    repoURL: https://github.com/issarapong/gitops-lab
     targetRevision: HEAD
-    path: applications
+    path: 02-core-tools/04-argocd/applications
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
@@ -459,6 +531,19 @@ spec:
     automated:
       prune: true
       selfHeal: true
+```
+
+**Apply the App of Apps:**
+
+```bash
+# Create the app of apps
+kubectl apply -f app-of-apps.yaml
+
+# Verify the app of apps
+kubectl get applications -n argocd
+
+# Check child applications managed by app of apps
+argocd app get app-of-apps --show-managed-resources
 ```
 
 ## Webhooks and Notifications
@@ -473,6 +558,8 @@ spec:
 ```
 
 ### Slack Notifications
+
+**Create file:** `argocd-notifications-cm.yaml`
 
 ```yaml
 apiVersion: v1
@@ -496,9 +583,26 @@ data:
       - on-deployed
 ```
 
+**Apply the notifications configuration:**
+
+```bash
+# Create Slack token secret first
+kubectl create secret generic slack-token \
+  --from-literal=slack-token=your-slack-bot-token \
+  -n argocd
+
+# Apply notifications configuration
+kubectl apply -f argocd-notifications-cm.yaml
+
+# Restart notifications controller
+kubectl rollout restart deployment argocd-notifications-controller -n argocd
+```
+
 ## Performance Tuning
 
 ### Controller Settings
+
+**Create file:** `argocd-cmd-params-cm.yaml`
 
 ```yaml
 apiVersion: v1
@@ -512,7 +616,22 @@ data:
   controller.status.processors: "20"
 ```
 
+**Apply performance tuning:**
+
+```bash
+# Apply performance configuration
+kubectl apply -f argocd-cmd-params-cm.yaml
+
+# Restart ArgoCD application controller
+kubectl rollout restart deployment argocd-application-controller -n argocd
+
+# Monitor controller performance
+kubectl top pod -n argocd
+```
+
 ## Clean Up
+
+**Action:** Remove ArgoCD applications and components
 
 ```bash
 # Delete applications
@@ -520,8 +639,15 @@ argocd app delete sample-app-dev
 argocd app delete sample-app-staging
 argocd app delete sample-app-prod
 
-# Delete ArgoCD
+# Delete application namespaces
+kubectl delete namespace dev staging production
+
+# Delete ArgoCD completely
 kubectl delete namespace argocd
+
+# Verify cleanup
+kubectl get namespaces
+kubectl get applications -A
 ```
 
 ## Next Steps

@@ -1,20 +1,18 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: sample-app-dev
+  name: app-of-apps
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: https://github.com/issarapong/gitops-lab
     targetRevision: HEAD
-    path: 01-foundation/03-gitops-intro/clusters/dev/sample-app
+    path: 02-core-tools/04-argocd/applications
   destination:
     server: https://kubernetes.default.svc
-    namespace: dev
+    namespace: argocd
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
-    syncOptions:
-    - CreateNamespace=true
